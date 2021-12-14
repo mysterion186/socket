@@ -41,8 +41,13 @@ int main(int argc, char* argv[])
 	int connect_client = connect(S1,(struct sockaddr *) &Ad_dest,sizeof(Ad_dest));
 
     // requete à envoyer
-    char requete[100] = "GET /\r\n";
+    char requete[100] = "GET /";
+    char *file_name = argv[3]; // nom du fichier demandé
+    char end_requete[100] = " HTTP/1.0\r\n\r\n";
+    strcat(requete,file_name);
+    strcat(requete,end_requete);
     char reponse[1200];
+	printf("%s",requete);
     write(S1,requete,sizeof(requete));
 
     // lecture de ce que l'on reçoit

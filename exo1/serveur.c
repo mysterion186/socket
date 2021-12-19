@@ -32,15 +32,15 @@ int main(int argc, char* argv[])
 	char msg_envoie[50] = "message recu";
 	struct sockaddr_in Ad_emet;
 	int taille = sizeof(Ad_emet);
-	// lecture du message se trouvant dans 
+	// lecture + affichage du message se trouvant dans le buffer 
 	recvfrom(S1,msg_recu,sizeof(msg_recu),0,(struct sockaddr*)&Ad_emet,&taille);
 	printf("%s \n",msg_recu);
-	
+	// lecture + affichage du numéro de PID du client se trouvant dans le buffer 
 	recvfrom(S1,&pid_recu,sizeof(pid_recu),0,(struct sockaddr*)&Ad_emet,&taille);
 	printf("%d \n", pid_recu);
-	printf("Les messages viennent d'être renvoyé au client \n");
 	//envoie du message reçue par le serveur avec son pid à lui
 	sendto(S1,msg_recu,sizeof(msg_recu),0,(struct sockaddr*)&Ad_emet,sizeof(Ad_emet));
 	sendto(S1,&pid,sizeof(pid),0,(struct sockaddr*)&Ad_emet,sizeof(Ad_emet));
+	printf("Les messages viennent d'être renvoyé au client \n");
 	return 0;	
 }

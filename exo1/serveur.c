@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 	struct sockaddr_in Ad1;
 	Ad1.sin_family = AF_INET;
 	Ad1.sin_port = htons(atoi(argv[1])); //port du serveur
-	Ad1.sin_addr.s_addr = INADDR_ANY;
+	Ad1.sin_addr.s_addr = INADDR_ANY; // prend l'adresse IP de la machine 
 	memset(Ad1.sin_zero,0,8);
 	int res = bind(S1,(struct sockaddr*)&Ad1,sizeof(Ad1));
 	if(res==-1)

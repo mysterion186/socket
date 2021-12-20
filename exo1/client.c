@@ -17,7 +17,6 @@ int main(int argc, char* argv[])
 	strcpy(msg_envoie, argv[3]);
 	// création de la socket 
 	int S1 = socket(AF_INET, SOCK_DGRAM,0);
-
 	// remplissage des champs pour utilier la socket 
 	struct sockaddr_in Ad1;
 	Ad1.sin_family = AF_INET;
@@ -30,12 +29,10 @@ int main(int argc, char* argv[])
 		if(errno==EBADF){printf("Pb bind : mauvais descripteur");}
 		if(errno==EINVAL){printf("Socket deja lie à une adresse");}
 	}
-
 	int pid = getpid();
 	int pid_serveur;
 	printf("PID : %d \n", pid);
 	printf("chaine de chaine de caracteres : %s \n", msg_envoie);
-	
 	// remplissage des informations de serveur avec les infos passé en paramètre
 	struct sockaddr_in Ad_dest;
 	Ad_dest.sin_family = AF_INET;
@@ -44,16 +41,15 @@ int main(int argc, char* argv[])
 	hp = gethostbyname(argv[1]);
 	if(hp == NULL){return -1;}
 	memcpy(&Ad_dest.sin_addr,hp->h_addr_list[0],hp->h_length);
-
 	// envoie des messages au serveur
 	sendto(S1,msg_envoie,sizeof(msg_envoie),0,(struct sockaddr*)&Ad_dest,sizeof(Ad_dest));
 	sendto(S1,&pid,sizeof(pid),0,(struct sockaddr*)&Ad_dest,sizeof(Ad_dest));
 	printf("Les messages viennent d'être envoyé\n");
-	// lecture de la réponse du serveur 
+	// lecture + affichage du message se trouvant dans le buffer 
 	int taille = sizeof(Ad_dest);
 	recvfrom(S1,msg_recu,sizeof(msg_recu),0,(struct sockaddr*)&Ad_dest,&taille);
 	printf("%s \n",msg_recu);
-
+	// lecture + affichage du numéro de PID du client se trouvant dans le buffer 
 	recvfrom(S1,&pid_serveur,sizeof(pid_serveur),0,(struct sockaddr*)&Ad_dest,&taille);
 	printf("%d \n",pid_serveur);
 	return 0;

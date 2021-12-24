@@ -8,13 +8,13 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <string.h>
+#include <sys/select.h>
 
 extern int errno;
 
 int main(int argc, char* argv[])
 {
-	int pid = getpid();
-	printf("PID : %d \n",pid);
+	
 	int S1 = socket(AF_INET, SOCK_STREAM,0);
 	struct sockaddr_in Ad1;
 	Ad1.sin_family = AF_INET;
@@ -29,15 +29,12 @@ int main(int argc, char* argv[])
 	}
 	
 	int ecoute = listen(S1,5);
-	if(ecoute == -1){printf("erreur ecoute");}
+	if(ecoute == -1){printf("erreur ecoute"); exit(EXIT_FAILURE);}
 
 	int Ad1_size=sizeof(Ad1);
-	printf("On est avant l'accepte \n");
-	int service = accept(S1,(struct sockaddr*)&Ad1,&Ad1_size);
-	printf("On est après l'accepte \n");
 	char msg_recu[1000];
-	read(service,msg_recu,sizeof(msg_recu));
-	int pid_recu;
+	
+	
 	char msg_envoie[50] = "message recu";
 	//struct sockaddr_in Ad_emet;
 	//int taille = sizeof(Ad_emet);
@@ -45,57 +42,125 @@ int main(int argc, char* argv[])
 	FILE * fp;
 	char * line = NULL;
 	size_t len = 0;
-	ssize_t read;
+	ssize_t read_text;
 	char text[1000];
-	if(strstr(msg_recu,"index.html") != NULL)
-	{
-		fp = fopen("index.html","r");
-		if(fp == NULL){exit(EXIT_FAILURE);}
-		while ((read = getline(&line, &len, fp)) != -1) 
-		{
-        		printf("Retrieved line of length %zu:\n", read);
-        		strcat(text,line);
-    		}
-	}
-	else if(strstr(msg_recu,"verite.html") != NULL)
-	{
-		printf("verite.html");
-		fp = fopen("verite.html","r");
-		if(fp == NULL){exit(EXIT_FAILURE);}
-		while ((read = getline(&line, &len, fp)) != -1) 
-		{
-        		printf("Retrieved line of length %zu:\n", read);
-        		strcat(text,line);
-    		}
-	}
-	else if(strstr(msg_recu,"/ ") != NULL)
-	{
-		printf("/index.html");
+
+	fd_set ens1; // création de l'ensemble des sockets 
+	FD_ZERO(&ens1); // on "réinitialise l'ensemble" 
+	//FD_SET(S1,&ens1); // on ajoute la socket créée dans l'ensemble
+
+	int max_socket_value = S1; // on note la valeur de la plus grande socket 
+
+	// boucle pour "écouter" les sockets
+	while(1){
 		
-		fp = fopen("index.html","r");
-		if(fp == NULL){exit(EXIT_FAILURE);}
-		while ((read = getline(&line, &len, fp)) != -1) 
-		{
-        		printf("Retrieved line of length %zu:\n", read);
-        		strcat(text,line);
-    		}
+		// contient le nombre de socket 'acttives'
+		FD_SET(S1,&ens1); // on ajoute la socket créée dans l'ensemble
+		printf("while la valeur max est %d\n",max_socket_value);
+		int select_statut = select(max_socket_value+1,&ens1,NULL,NULL,0);
+		if (select_statut==-1){
+			printf("Pb select ");
+			exit(EXIT_FAILURE);
+		}
+		printf("On est après le select, %d\n",select_statut);
+		
+		// boucle for pour voir "s'il y a du nouveau"
+		for (int i =0; i<= max_socket_value && select_statut >0;i++){
+			// s'il y a qqch au niveau de la socket i 
+			if (FD_ISSET(i,&ens1)){
+				printf("On est dans le cas où i = S1\n");
+				select_statut--;
+				if (i==S1){
+					// cas où la socket i est la socket S1 on accepte la connection
+					int new = accept(S1,NULL,NULL);
+					// cas où il y a une erreur lors du accepte
+					if (new==-1){
+						printf("Erreur dans l'accepte \n");
+						exit(EXIT_FAILURE); 
+						break;
+					}
+					FD_SET(new,&ens1);
+					FD_CLR(i,&ens1);
+					// maj de la valeur max de descripteur de socket
+					if (max_socket_value < new){
+						max_socket_value = new;
+					}
+				}
+
+				// cas où la socket n'est pas la socket s1
+				else {
+					printf("On est dans le cas où i != S1\n");
+					int result = read(i,msg_recu,sizeof(msg_recu));
+					if (result == -1){
+						if (EWOULDBLOCK != errno){
+							exit(EXIT_FAILURE);
+						}
+						break;
+					}
+					if(strstr(msg_recu,"index.html") != NULL)
+					{
+						fp = fopen("index.html","r");
+						if(fp == NULL){exit(EXIT_FAILURE);}
+						while ((read_text = getline(&line, &len, fp)) != -1) 
+						{
+								printf("Retrieved line of length %zu:\n", read_text);
+								strcat(text,line);
+						}
+					}
+					else if(strstr(msg_recu,"verite.html") != NULL)
+					{
+						printf("verite.html");
+						fp = fopen("verite.html","r");
+						if(fp == NULL){exit(EXIT_FAILURE);}
+						while ((read_text = getline(&line, &len, fp)) != -1) 
+						{
+								printf("Retrieved line of length %zu:\n", read_text);
+								strcat(text,line);
+						}
+					}
+					else if(strstr(msg_recu,"/ ") != NULL)
+					{
+						printf("/index.html");
+						
+						fp = fopen("index.html","r");
+						if(fp == NULL){exit(EXIT_FAILURE);}
+						while ((read_text = getline(&line, &len, fp)) != -1) 
+						{
+								printf("Retrieved line of length %zu:\n", read_text);
+								strcat(text,line);
+						}
+					}
+					else
+					{
+						printf("404.html");
+						fp = fopen("404_error.html","r");
+						if(fp == NULL){exit(EXIT_FAILURE);}
+						while ((read_text = getline(&line, &len, fp)) != -1) 
+						{
+								printf("Retrieved line of length %zu:\n", read_text);
+								strcat(text,line);
+						}
+					}
+					write(i,"HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n",strlen("HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n"));
+					write(i,text,sizeof(text));
+					printf("%s\n",msg_recu);
+					printf("%s\n",text);
+					memset(text,0,sizeof(msg_recu));
+					memset(msg_recu,0,sizeof(msg_recu));
+					close(i);
+					FD_CLR(i,&ens1);
+					//max_socket_value = S1;
+				}
+			}		
+		}
 	}
-	else
-	{
-		printf("404.html");
-		fp = fopen("404_error.html","r");
-		if(fp == NULL){exit(EXIT_FAILURE);}
-		while ((read = getline(&line, &len, fp)) != -1) 
-		{
-        		printf("Retrieved line of length %zu:\n", read);
-        		strcat(text,line);
-    		}
-	}
-	printf("%s \n",msg_recu);
-	printf("%s \n",text);
-	write(service,text,sizeof(text));
-	close(service);
+	
+	// for (int i=0; i<=max_socket_value;i++){
+	// 	close(i);
+	// 	FD_CLR(i,&ens1);
+	// }
 	close(S1);
+	FD_CLR(S1,&ens1);
 
 	return 0;
 }

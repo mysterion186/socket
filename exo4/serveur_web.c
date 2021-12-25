@@ -17,7 +17,8 @@ int main(int argc, char* argv[])
 {
 	
 	int S1 = socket(AF_INET, SOCK_STREAM,0);
-	struct sockaddr_in Ad1;
+	struct sockaddr_in Ad1,temp;
+	socklen_t temp_len = sizeof(temp);
 	Ad1.sin_family = AF_INET;
 	Ad1.sin_port = htons(atoi(argv[1])); //port du client
 	Ad1.sin_addr.s_addr = INADDR_ANY;
@@ -46,6 +47,11 @@ int main(int argc, char* argv[])
 	size_t len = 0;
 	ssize_t read_text;
 	char text[1000];
+
+	const char *PATTERN1 = "Host: ";
+	const char *PATTERN2 = "Connection";
+
+	char *host = NULL;
 
 	fd_set ens1; // création de l'ensemble des sockets 
 	FD_ZERO(&ens1); // on "réinitialise l'ensemble" 
@@ -148,6 +154,7 @@ int main(int argc, char* argv[])
 								strcat(text,line);
 						}
 					}
+					fclose(fp);
 					// on obtient l'heure à laquelle la requête a été faite
 					time_t current_time;
 					struct tm * time_info;
@@ -156,20 +163,56 @@ int main(int argc, char* argv[])
 					time_info = localtime(&current_time);
 					strftime(time,sizeof(time),"%H:%M:%S",time_info);
 
-					// on essaye de voit qui a fait la requête 
+					// on essaye de voir la requête a été faite sur quel port 
+					if (getsockname(i, (struct sockaddr *)&temp, &temp_len) == -1)
+						perror("getsockname");
+					else
+						printf("port number %d with nothing\n", temp.sin_port); 
+						printf("port number %d with htons\n", htons(temp.sin_port)); 
+						printf("port number %d with ntohs\n", ntohs(temp.sin_port)); 
+					
+					// on essaye de trouvecr le nom de l'hôte qui a fait la requeête 
+					
+					char *start, *end;
+
+					if ( start = strstr( msg_recu, PATTERN1 ) )
+					{
+						start += strlen( PATTERN1 );
+						if ( end = strstr( start, PATTERN2 ) )
+						{
+							host = ( char * )malloc( end - start + 1 );
+							memcpy( host, start, end - start );
+							host[end - start] = '\0';
+						}
+					}
+
+					if ( host ) printf( "host : %s\n", host );
+
+
+
+					
+
+
 					// on envoie une réponse pour dire que la requête à été accepté avec le type de fichier à prendre en compte
 					write(i,"HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n",strlen("HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n"));
 					write(i,text,sizeof(text)); // envoie du fichier HTML
 					printf("The file requested was %s\n",filename);
 					printf("At %s\n",time);
-					printf("By %s\n");
+					//printf("By %s\n");
 					printf("%s\n",text);
+					printf("Host : %s | date : %s | file : %s \n",host,time,filename);
+					// écriture dans le fichier log_file 
+					FILE *fp;
+					fp = fopen("log_file.txt","a");
+					fprintf(fp,"Host : %s | date : %s | file : %s \n",host,time,filename);
 					// réinitialisation des char 
 					memset(text,0,sizeof(msg_recu));
 					memset(msg_recu,0,sizeof(msg_recu));
+					free( host );
 					// fermeture des sockets + nettoyage de l'ensemble
 					close(i);
 					FD_CLR(i,&ens1);
+					fclose(fp);
 					//max_socket_value = S1;
 				}
 			}		

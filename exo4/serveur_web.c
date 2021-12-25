@@ -17,14 +17,25 @@ int main(int argc, char* argv[])
 {
 	
 	int S1 = socket(AF_INET, SOCK_STREAM,0);
-	struct sockaddr_in Ad1,temp;
-	socklen_t temp_len = sizeof(temp);
+	int S2 = socket(AF_INET, SOCK_STREAM,0);
+	struct sockaddr_in Ad1,Ad2;
+	socklen_t Ad2_size = sizeof(Ad2);
 	Ad1.sin_family = AF_INET;
 	Ad1.sin_port = htons(atoi(argv[1])); //port du client
 	Ad1.sin_addr.s_addr = INADDR_ANY;
 	memset(Ad1.sin_zero,0,8);
+	Ad2.sin_family = AF_INET;
+	Ad2.sin_port = htons(atoi(argv[2])); //port du client
+	Ad2.sin_addr.s_addr = INADDR_ANY;
+	memset(Ad2.sin_zero,0,8);
 	int res = bind(S1,(struct sockaddr*)&Ad1,sizeof(Ad1));
+	int res2 = bind(S2,(struct sockaddr*)&Ad2,sizeof(Ad2));
 	if(res==-1)
+	{
+		if(errno==EBADF){printf("Pb bind : mauvais descripteur");}
+		if(errno==EINVAL){printf("Socket deja lie à une adresse");}
+	}
+	if(res2==-1)
 	{
 		if(errno==EBADF){printf("Pb bind : mauvais descripteur");}
 		if(errno==EINVAL){printf("Socket deja lie à une adresse");}
@@ -32,6 +43,8 @@ int main(int argc, char* argv[])
 	
 	int ecoute = listen(S1,5);
 	if(ecoute == -1){printf("erreur ecoute"); exit(EXIT_FAILURE);}
+	int ecoute2 = listen(S2,5);
+	if(ecoute2 == -1){printf("erreur ecoute"); exit(EXIT_FAILURE);}
 
 	int Ad1_size=sizeof(Ad1);
 	char msg_recu[1000];
@@ -57,15 +70,16 @@ int main(int argc, char* argv[])
 	FD_ZERO(&ens1); // on "réinitialise l'ensemble" 
 	//FD_SET(S1,&ens1); // on ajoute la socket créée dans l'ensemble
 
-	int max_socket_value = S1; // on note la valeur de la plus grande socket 
+	int max_socket_value = S2; // on note la valeur de la plus grande socket 
 
 	// boucle pour "écouter" les sockets
 	while(1){
 		
 		// contient le nombre de socket 'acttives'
 		FD_SET(S1,&ens1); // on ajoute la socket créée dans l'ensemble
+		FD_SET(S2,&ens1); // on ajoute la socket créée dans l'ensemble
 		printf("while la valeur max est %d\n",max_socket_value);
-		int select_statut = select(max_socket_value+1,&ens1,NULL,NULL,0);
+		int select_statut = select(S2+1,&ens1,NULL,NULL,0);
 		if (select_statut==-1){
 			printf("Pb select ");
 			exit(EXIT_FAILURE);
@@ -73,32 +87,19 @@ int main(int argc, char* argv[])
 		printf("On est après le select, %d\n",select_statut);
 		
 		// boucle for pour voir "s'il y a du nouveau"
-		for (int i =0; i<= max_socket_value && select_statut >0;i++){
+		
 			// s'il y a qqch au niveau de la socket i 
-			if (FD_ISSET(i,&ens1)){
-				printf("On est dans le cas où i = S1\n");
-				select_statut--;
-				if (i==S1){
+			if (FD_ISSET(S1,&ens1)){
 					// cas où la socket i est la socket S1 on accepte la connection
-					int new = accept(S1,NULL,NULL);
+					int new = accept(S1,(struct sockaddr*)&Ad1,(socklen_t *)&Ad1_size);
 					// cas où il y a une erreur lors du accepte
 					if (new==-1){
 						printf("Erreur dans l'accepte \n");
 						exit(EXIT_FAILURE); 
 						break;
 					}
-					FD_SET(new,&ens1);
-					FD_CLR(i,&ens1);
 					// maj de la valeur max de descripteur de socket
-					if (max_socket_value < new){
-						max_socket_value = new;
-					}
-				}
-
-				// cas où la socket n'est pas la socket s1
-				else {
-					// on lit la requête que la socket à reçu
-					int result = read(i,msg_recu,sizeof(msg_recu));
+					int result = read(new,msg_recu,sizeof(msg_recu));
 					if (result == -1){
 						if (EWOULDBLOCK != errno){
 							exit(EXIT_FAILURE);
@@ -163,13 +164,7 @@ int main(int argc, char* argv[])
 					time_info = localtime(&current_time);
 					strftime(time,sizeof(time),"%H:%M:%S",time_info);
 
-					// on essaye de voir la requête a été faite sur quel port 
-					if (getsockname(i, (struct sockaddr *)&temp, &temp_len) == -1)
-						perror("getsockname");
-					else
-						printf("port number %d with nothing\n", temp.sin_port); 
-						printf("port number %d with htons\n", htons(temp.sin_port)); 
-						printf("port number %d with ntohs\n", ntohs(temp.sin_port)); 
+					
 					
 					// on essaye de trouvecr le nom de l'hôte qui a fait la requeête 
 					
@@ -187,15 +182,9 @@ int main(int argc, char* argv[])
 					}
 
 					if ( host ) printf( "host : %s\n", host );
-
-
-
-					
-
-
 					// on envoie une réponse pour dire que la requête à été accepté avec le type de fichier à prendre en compte
-					write(i,"HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n",strlen("HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n"));
-					write(i,text,sizeof(text)); // envoie du fichier HTML
+					write(new,"HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n",strlen("HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n"));
+					write(new,text,sizeof(text)); // envoie du fichier HTML
 					printf("The file requested was %s\n",filename);
 					printf("At %s\n",time);
 					//printf("By %s\n");
@@ -210,17 +199,47 @@ int main(int argc, char* argv[])
 					memset(msg_recu,0,sizeof(msg_recu));
 					free( host );
 					// fermeture des sockets + nettoyage de l'ensemble
-					close(i);
-					FD_CLR(i,&ens1);
+					close(new);
 					fclose(fp);
-					//max_socket_value = S1;
+			}
+			else if (FD_ISSET(S2,&ens1)){
+				printf("Dans la socket 2\n");
+				int new = accept(S2,(struct sockaddr*)&Ad2,&Ad2_size);
+				// cas où il y a une erreur lors du accepte
+				if (new==-1){
+					printf("Erreur dans l'accepte \n");
+					exit(EXIT_FAILURE); 
+					break;
 				}
+				int result = read(new,msg_recu,sizeof(msg_recu));
+				if (result == -1){
+					if (EWOULDBLOCK != errno){
+						exit(EXIT_FAILURE);
+					}
+					break;
+				}
+
+				// lecteur du fichier log_file
+				fp = fopen("log_file","r");
+				if(fp == NULL){exit(EXIT_FAILURE);}
+				while ((read_text = getline(&line, &len, fp)) != -1) 
+				{
+					printf("Retrieved line of length %zu:\n", read_text);
+					strcat(text,line);
+				}
+				fclose(fp); // fermeture du fichier 
+				write(new,"HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n",strlen("HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n"));
+				write(new,text,sizeof(text)); // envoie du fichier HTML
+				close(new);
+				fclose(fp);
 			}		
-		}
+		
 	}
 	
 	close(S1);
 	FD_CLR(S1,&ens1);
+	close(S2);
+	FD_CLR(S2,&ens1);
 
 	return 0;
 }

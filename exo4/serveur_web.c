@@ -211,6 +211,7 @@ int main(int argc, char* argv[])
 					exit(EXIT_FAILURE); 
 					break;
 				}
+				printf("Socket 2 : après le accepte\n");
 				int result = read(new,msg_recu,sizeof(msg_recu));
 				if (result == -1){
 					if (EWOULDBLOCK != errno){
@@ -218,20 +219,22 @@ int main(int argc, char* argv[])
 					}
 					break;
 				}
-
+				printf("Socket 2 : après le read\n");
 				// lecteur du fichier log_file
-				fp = fopen("log_file","r");
-				if(fp == NULL){exit(EXIT_FAILURE);}
-				while ((read_text = getline(&line, &len, fp)) != -1) 
+				FILE *response;
+				response = fopen("log_file.txt","r");
+				if(response == NULL){printf("Pb pour lire le fichier\n");exit(EXIT_FAILURE);}
+				printf("Socket 2 : après la lecture du fichier\n");
+				while ((read_text = getline(&line, &len, response)) != -1) 
 				{
 					printf("Retrieved line of length %zu:\n", read_text);
 					strcat(text,line);
 				}
-				fclose(fp); // fermeture du fichier 
+				fclose(response); // fermeture du fichier 
 				write(new,"HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n",strlen("HTTP/1.1 200 OK Content-Type : text/html\r\n\r\n"));
 				write(new,text,sizeof(text)); // envoie du fichier HTML
 				close(new);
-				fclose(fp);
+				fclose(response);
 			}		
 		
 	}

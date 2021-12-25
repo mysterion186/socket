@@ -1,0 +1,12 @@
+Host : localhost:10001
+ | date : 14:45:06 | file : index.html 
+Host : localhost:10001
+ | date : 14:45:06 | file : index.html 
+Host : localhost:10001
+ | date : 14:45:12 | file : verite.html 
+Host : localhost:10001
+ | date : 14:45:12 | file : verite.html 
+Host : localhost:10001
+ | date : 14:45:23 | file : index.html 
+Host : localhost:10001
+ | date : 14:45:23 | file : 404_error.html 
